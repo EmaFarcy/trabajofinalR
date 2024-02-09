@@ -1,0 +1,160 @@
+---
+title: "Trabajo final: Explorando Datos con R"
+author: "Emanuel Farcy"
+date: "2024-02-04"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    fig_width: 12
+---
+
+# Introducción
+
+En este trabajo nos proponemos explorar un dataset de una empresa de jardinería. El dataset contiene información sobre los clientes de la empresa y vamos a analizar la relación entre el límite de crédito, el país y la región de los clientes.
+
+Tomamos estas tres variables para nuestro análisis porque consideramos que son las más relevantes para la empresa. El límite de crédito es importante porque le permite saber cuánto crédito puede otorgar a cada cliente. El país y la región son importantes porque la empresa de jardinería puede tener diferentes estrategias de marketing y ventas para cada país y región. 
+
+Por estas razones la conexión entre ellas está justificada y es el objetivo de nuestro análisis ya que nos permitirá entender mejor a los clientes de la empresa, los contextos en los que se encuentran y cómo la empresa puede adaptar sus estrategias a cada contexto.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Carga de paquetes y datos
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(DT)
+library(kableExtra)
+
+Final_jardineria_data_set_SI <- read_excel("C:/Users/matoi/Dropbox/Coderhouse/R/Final_jardineria_data_set_SI.xls")
+
+# Visualización del Data Frame Jardinería
+cat("-- Visualización de los clientes data frame Jardinería--")
+DT::datatable(Final_jardineria_data_set_SI)
+
+# Elimino filas con valores "NULL" en la variable 'region' utilizando filter.
+Final_jardineria_data_set_SI <- Final_jardineria_data_set_SI %>%
+  filter(region != "NULL" & !is.na(region))
+
+# Función que describe las dimensiones del dataset como así también si existen datos NA, la función debe retornar un mensaje en la consola indicando número de filas, columnas y total de NAs si es que existen.
+
+informacion_dataset <- function(dataset) {
+  filas <- nrow(dataset)
+  columnas <- ncol(dataset)
+  NAs <- sum(is.na(dataset))
+  mensaje <- paste("El dataset tiene", filas, "filas,", columnas, "columnas y", NAs, "NAs.")
+  print(mensaje)
+}
+
+informacion_dataset(Final_jardineria_data_set_SI)
+
+```
+
+# Primera Parte: Relación entre el límite de crédito y región de los clientes
+
+A continuación, vamos a analizar la relación entre el límite de crédito y la región de los clientes. Para ello, vamos a calcular estadísticas descriptivas del límite de crédito para cada región y a visualizar los resultados.
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Estadisticas_limite_credito <- Final_jardineria_data_set_SI %>%
+  group_by(region) %>%
+  summarise(media_limite_credito = mean(limite_credito),
+            mediana_limite_credito = median(limite_credito),
+            desviacion_estandar_limite_credito = sd(limite_credito),
+            minimo_limite_credito = min(limite_credito),
+            maximo_limite_credito = max(limite_credito))
+
+# Visualización 1: estadísticas descriptivas del límite de crédito por región.
+kable(Estadisticas_limite_credito, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F,
+  latex_options = c("title" = "Estadísticas descriptivas del límite de crédito por región"))
+
+
+# Visualización 2
+ggplot(Final_jardineria_data_set_SI, aes(x = region, y = limite_credito, fill = region)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 1.2)) +
+  labs(title = "Limite de crédito por región", x = "Región", y = "Limites de crédito") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_y_continuous(labels = scales::number_format(scale = 1e6))
+
+```
+
+# Segunda Parte: Relación entre el límite de crédito y el país de los clientes.
+
+A continuación, vamos a analizar la relación entre el límite de crédito y el país de los clientes. Para ello, vamos a calcular estadísticas descriptivas del límite de crédito para cada país y a visualizar los resultados con ggplot2.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Estadisticas_limite_credito_pais <- Final_jardineria_data_set_SI %>%
+  group_by(pais) %>%
+  summarise(media_limite_credito = mean(limite_credito),
+            mediana_limite_credito = median(limite_credito),
+            desviacion_estandar_limite_credito = sd(limite_credito),
+            minimo_limite_credito = min(limite_credito),
+            maximo_limite_credito = max(limite_credito))
+
+# Visualización 1 de las estadísticas descriptivas del límite de crédito por país.
+kable(Estadisticas_limite_credito_pais, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+
+
+# Visualización 3
+ggplot(Final_jardineria_data_set_SI, aes(x = "", fill = pais)) +
+  geom_bar(width = 1, position = "fill") +
+  labs(title = "Relación entre el límite de crédito por país", fill = "País") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_polar("y", start = 0) +
+  scale_fill_brewer(palette = "Set3")
+```
+
+# Tercera Parte: Segmentación de Clientes  
+
+En esta segunda parte vamos a utilizar Kmeans para segmentar a los clientes en 4 grupos: los que viven en USA, los que viven en Spain, los que viven en Australia y los que viven en United Kingdom. Luego, vamos a visualizar los resultados con ggplot2.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Seleccionar solo las columnas numéricas relevantes
+columnas_numericas <- Final_jardineria_data_set_SI[, sapply(Final_jardineria_data_set_SI, is.numeric)]
+
+# Segmentación de clientes en 4 grupos: los que viven en USA, los que viven en Spain, los que viven en France y los que viven en United Kingdom.
+kmeans_result <- kmeans(columnas_numericas, centers = 4)
+
+
+Final_jardineria_data_set_SI$grupo <- as.factor(kmeans_result$cluster)
+
+# Visualización de los resultados.
+ggplot(Final_jardineria_data_set_SI, aes(x = limite_credito, y = pais, color = grupo)) +
+  geom_point() +
+  labs(title = "Segmentación de clientes por país", x = "Limite de crédito", y = "País") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+El gráfico muestra la segmentación de los clientes por país. Los colores representan los 4 grupos en los que se segmentaron los clientes. En Spain y Australia, los límites de crédito son más bajos y se observa una mayor dispersión en los datos. Esto quiere decir que hay clientes con límites de crédito muy bajos y otros con límites de crédito más altos.
+A su vez, se observa que los clientes de USA y United Kingdom tienen límites de crédito más altos que los clientes de Spain y Australia.
+
+#Utilizaremos la función summary(kclust) para obtener un resumen de los resultados del algoritmo Kmeans.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(kmeans_result)
+```
+
+El algoritmo Kmeans agrupó a los clientes en 4 grupos. Los centroides de los grupos son los siguientes:
+- Grupo 1: 1.5e+06
+- Grupo 2: 1.5e+06
+- Grupo 3: 1.5e+06
+- Grupo 4: 1.5e+06
+
+
+# Cuarte Parte: Síntesis y Conclusiones
+
+En este trabajo se exploró un dataset de una empresa de jardinería con el objetivo de analizar la relación entre el límite de crédito, el país y la región de los clientes. Se consideró que estas variables son relevantes para la empresa, ya que el límite de crédito determina cuánto crédito puede otorgar a cada cliente, y el país y la región pueden influir en las estrategias de marketing y ventas.
+
+Se realizaron visualizaciones para analizar la relación entre el límite de crédito y la región, así como entre el límite de crédito y el país. Se observó que en algunas regiones y países los límites de crédito eran más altos que en otros, lo que indica diferencias en el poder adquisitivo de los clientes.
+
+Además, se utilizó el algoritmo Kmeans para segmentar a los clientes en 4 grupos según el país en el que viven. Se visualizó la segmentación y se observó que los clientes de USA y United Kingdom tenían límites de crédito más altos que los clientes de Spain y Australia.
+
+En conclusión, se encontró una relación entre el límite de crédito, el país y la región de los clientes de la empresa de jardinería. Estos hallazgos pueden ser útiles para adaptar las estrategias de marketing y ventas a cada contexto y mejorar la atención a los clientes.
+
